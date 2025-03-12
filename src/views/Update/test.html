@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>完美无缝广告滚动</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .scroll-container {
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+      padding: 2rem 0;
+    }
+
+    .scroll-track {
+      display: inline-flex;
+      white-space: nowrap;
+      position: relative;
+      will-change: transform;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    }
+
+    .ad-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 1.5rem 4rem;
+      /* margin: 0 1.5rem; */
+      /* border-radius: 1rem; */
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: white;
+      flex-shrink: 0;
+      position: relative;
+      background: var(--bg-color);
+      transition: transform 0.3s ease;
+    }
+
+    @media (max-width: 768px) {
+      .ad-item {
+        padding: 1rem 2rem;
+        /* margin: 0 1rem; */
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="scroll-container">
+    <div class="scroll-track">
+      <div class="ad-item" style="--bg-color: #FF6B6B;">🚀 限时特惠</div>
+      <div class="ad-item" style="--bg-color: #4ECDC4;">🎁 新人礼包</div>
+      <div class="ad-item" style="--bg-color: #45B7D1;">✈️ 全球包邮</div>
+      <div class="ad-item" style="--bg-color: #96CEB4;">💎 会员特权</div>
+    </div>
+  </div>
+
+  <script>
+    class PerfectScroll {
+      constructor() {
+        this.container = document.querySelector('.scroll-container');
+        this.track = document.querySelector('.scroll-track');
+        this.items = Array.from(this.track.children);
+        this.speed = 0.5; // 滚动速度 (px/frame)
+        this.rafId = null;
+        this.isPaused = false;
+        this.cloneThreshold = 2; // 提前克隆的阈值
+
+        this.init();
+      }
+
+      init() {
+        // 初始化克隆
+        this.originalWidth = this.track.scrollWidth;
+        this.cloneItems();
+
+        // 绑定事件
+        this.setupEventListeners();
+        this.startAnimation();
+
+        // 开启位置监控
+        this.monitorPosition();
+      }
+
+      cloneItems() {
+        // 计算需要克隆的次数
+        const visibleItems = Math.ceil(this.container.offsetWidth / this.items[0].offsetWidth);
+        const cloneTimes = Math.ceil(visibleItems / this.items.length) + 1;
+
+        // 执行克隆
+        for (let i = 0; i < cloneTimes; i++) {
+          this.items.forEach(item => {
+            const clone = item.cloneNode(true);
+            this.track.appendChild(clone);
+          });
+        }
+      }
+
+      monitorPosition() {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting &&
+              entry.target === this.track.lastElementChild) {
+              this.recycleItems();
+            }
+          });
+        }, {
+          root: this.container,
+          threshold: 0.1
+        });
+
+        observer.observe(this.track.lastElementChild);
+      }
+
+      recycleItems() {
+        // 回收超出可视范围的元素
+        const firstItem = this.track.firstElementChild;
+        while (this.track.scrollWidth > this.originalWidth * this.cloneThreshold) {
+          this.track.removeChild(firstItem);
+          this.track.appendChild(firstItem.cloneNode(true));
+        }
+      }
+
+      animate() {
+        if (this.isPaused) return;
+
+        const currentScroll = this.track.style.transform
+          ? parseFloat(this.track.style.transform.replace('translateX(', ''))
+          : 0;
+
+        let newScroll = currentScroll - this.speed;
+
+        // 循环逻辑
+        if (Math.abs(newScroll) >= this.track.scrollWidth / 2) {
+          newScroll = 0;
+          this.track.style.transform = `translateX(${newScroll}px)`;
+        } else {
+          this.track.style.transform = `translateX(${newScroll}px)`;
+        }
+
+        this.rafId = requestAnimationFrame(() => this.animate());
+      }
+
+      setupEventListeners() {
+        // 悬停控制
+        this.container.addEventListener('mouseenter', () => {
+          this.isPaused = true;
+          cancelAnimationFrame(this.rafId);
+        });
+
+        this.container.addEventListener('mouseleave', () => {
+          this.isPaused = false;
+          this.animate();
+        });
+
+        // 响应式处理
+        window.addEventListener('resize', () => {
+          cancelAnimationFrame(this.rafId);
+          this.track.style.transform = 'translateX(0)';
+          this.originalWidth = this.track.scrollWidth;
+          this.animate();
+        });
+      }
+
+      startAnimation() {
+        this.rafId = requestAnimationFrame(() => this.animate());
+      }
+    }
+
+    // 初始化系统
+    new PerfectScroll();
+  </script>
+</body>
+
+</html>
